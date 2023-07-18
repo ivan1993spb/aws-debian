@@ -1,0 +1,35 @@
+name: Run packer build on a template file
+
+on:
+  push:
+    branches:
+      - 'master'
+jobs:
+  packer_build:
+    # When upgraded to ubuntu-22.04, the pipeline will fail with an
+    # ssh handshake error: address it later.
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup `packer`
+        uses: hashicorp/setup-packer@main
+        id: setup
+        with:
+          version: ${{ env.PACKER_VERSION }}
+
+      - name: Run `packer init`
+        id: init
+        run: "packer init ./debian.pkr.hcl"
+
+      - name: Run `packer validate`
+        id: validate
+        run: "packer validate ./debian.pkr.hcl"
+
+      - name: Packer build
+        id: build
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: "packer build ./debian.pkr.hcl"

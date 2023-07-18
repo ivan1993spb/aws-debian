@@ -1,0 +1,100 @@
+---
+- name: 'Install some software'
+  hosts: default
+  become: true
+
+  tasks:
+    - name: Install basic utilities
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      with_items:
+        - dnsutils
+        - netcat
+        - tree
+        - curl
+        - net-tools
+        - rsync
+        - vim
+        - htop
+        - traceroute
+        - tree
+        - conntrack
+        - python3
+        - python3-pip
+        - sysstat
+    
+    - name: Upgrade packages
+      ansible.builtin.apt:
+        update_cache: no
+        upgrade: yes
+
+    - name: Enable and start sysstat
+      ansible.builtin.service:
+        name: sysstat
+        state: started
+        enabled: yes
+
+    - name: Add HISTTIMEFORMAT to profile.d
+      copy:
+        dest: /etc/profile.d/histtimeformat.sh
+        content: |
+          #!/bin/bash
+
+          export HISTCONTROL=ignoreboth
+          export HISTSIZE=15000
+          export HISTFILESIZE=25000
+          export HISTTIMEFORMAT='%F %T '
+
+        mode: 0644
+        owner: root
+        group: root
+
+    - name: Add HISTTIMEFORMAT for root user
+      blockinfile:
+        path: /root/.bashrc
+        block: |
+          export HISTCONTROL=ignoreboth
+          export HISTSIZE=15000
+          export HISTFILESIZE=25000
+          export HISTTIMEFORMAT='%F %T '
+
+    - name: Create tunnel user
+      ansible.builtin.user:
+        name: tunnel
+        shell: /usr/bin/false
+        create_home: false
+        system: yes
+
+    - name: create key directory
+      file:
+        path: /etc/tunnelssh
+        state: directory
+        mode: 0700
+        owner: tunnel
+        group: tunnel
+
+    - name: Add SSH configuration for the tunnel user
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          Match User tunnel
+            AllowTcpForwarding yes
+            X11Forwarding no
+            AllowAgentForwarding no
+            Banner none
+            ForceCommand /bin/false
+            PermitTunnel yes
+            ForceCommand /usr/bin/false
+            #PasswordAuthentication yes
+            #PermitEmptyPasswords        no
+            GatewayPorts                no
+            HostbasedAuthentication     no
+            RhostsRSAAuthentication     no
+            AuthorizedKeysFile     /etc/tunnelssh/authorized_keys
+
+    - name: restart ssh
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
